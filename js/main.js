@@ -6,6 +6,67 @@ var global =
     };
 
 
+var App = {
+    Context: {
+        Configuration: {
+            Scale: 1,
+            Colors: [
+                '#FA7D19','#FFFFFF','#750ed8','#a477d4','#e5be1a','#f4df7a','#34393F','#25292E', '#279965'
+            ] ,
+            SvgHeight: 550,
+            SvgWidth: 350,
+            RangeScale: 10,
+        },
+        Constants: {
+
+        },
+        Cache: {
+
+        },
+        Templates: {
+            documentation: null
+        },
+        Elements: {
+
+        }
+    },
+    Data: {
+    },
+    Service: {
+    }
+};
+
+
+//----- Internet Explorer Abfrage -------------------------------------------------------------------------//
+
+function getInternetExplorerVersion()
+{
+    var rV = -1; // Return value assumes failure.
+
+    if (navigator.appName == 'Microsoft Internet Explorer' || navigator.appName == 'Netscape') {
+        var uA = navigator.userAgent;
+        var rE = new RegExp("MSIE ([0-9]{1,}[\.0-9]{0,})");
+
+        if (rE.exec(uA) != null) {
+            rV = parseFloat(RegExp.$1);
+        }
+        /*check for IE 11*/
+        else if (!!navigator.userAgent.match(/Trident.*rv\:11\./)) {
+            rV = 11;
+        }
+    }
+    return rV;
+}
+
+
+// --- Abfrage ob mobil unterwegs ---------------------------------------------------------------------------- //
+
+function isMobile(){
+    return navigator.userAgent.match(/(iPhone|iPod|iPad|blackberry|android|Kindle|htc|lg|midp|mmp|mobile|nokia|opera mini|palm|pocket|psp|sgh|smartphone|symbian|treo mini|Playstation Portable|SonyEricsson|Samsung|MobileExplorer|PalmSource|Benq|Windows Phone|Windows Mobile|IEMobile|Windows CE|Nintendo Wii)/i);
+}
+
+
+
 
 
 //--- JSON laden ------------------------------------------------------------------------------------------- //
@@ -23,274 +84,235 @@ function loadJSON(file,callback) {
 }
 
 
-//--- Zufallsfunktion  ------------------------------------------------------------------------------------- //
-
-function getRandomInt(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min)) + min; 
-}
 
 
-//--- Tausender-Formatierung ------------------------------------------------------------------------------- //
+//--- SVG generieren mit d3-----------------------------------------------------------------------------------   //
 
-function thousendPoints(zahl) {
-    var i;
-    var j=0;
-    var ergebnis="";
+//--- Einzelner Block --------------------------------------------------------------------------------   //
 
-    i=zahl.length-1;
+function renderBlock(_year, _id, _value, _valAusHeight) {
 
-    if(i>2){
 
-    while (i >= 0) {
-        ergebnis=zahl.substr(i,1)+ergebnis;
-        j++;
-        if (j==3) {
-            ergebnis="."+ergebnis;
-            j=0;
-        }
-        i--;
-    } } else {
-        ergebnis = zahl;
+    var value = 0;
+    var blockWidth = 100;
+    var blockX = 5;
+    var blockY = 350;
+    var blockColor = App.Context.Configuration.Colors[3];
+
+    switch (_id) {
+        case "ev":
+            value = parseInt(_value) *8;
+            blockY = 350-value;
+            break;
+
+        case "aus_ev":
+            blockX = 95;
+            value = (_value / 100000)*8;
+            blockY = 350 - ( (parseInt(_valAusHeight) *8) + value + 10);
+            blockWidth = 10;
+            blockColor = App.Context.Configuration.Colors[2]
+           break;
+
+        case "kath":
+            blockX = 120;
+            blockColor = App.Context.Configuration.Colors[5];
+            value = parseInt(_value)*8;
+            blockY = 350-value;
+            break;
+
+        case "aus_kath":
+            blockX = 120;
+            blockColor = App.Context.Configuration.Colors[4];
+            value = (_value / 100000)*8;
+            blockY = 350 -  (parseInt(_valAusHeight) *8 + value + 10);
+            blockWidth = 10;
+            break;
+
+        case "bev":
+            var valueTemp = parseInt(_value) *8;
+            value = (valueTemp * 100)  / 215
+            blockWidth = 215;
+            blockY = 350-value;
+            blockX = 5;
+            blockColor = "#ffffff";
+            break;
     }
-    return ergebnis;
+
+
+    var group = d3.select('#cross'+_year).append('g')
+        .attr('id', _id+_year);
+
+  
+
+    var rayID = group.append('rect')
+        .attr('id', _id+_year+'Block')
+        .attr('class', 'crossBlock')
+        .attr('fill', blockColor)
+        .attr('x', blockX)
+        .attr('y', blockY)
+        .attr('width', blockWidth)
+        .attr('height', value)
+        .attr('opacity', 1);
+
 }
 
+//--- Alle Blöcke für ein Jahr zusammensetzen------------------------------------------------------------------------   //
 
-//--- Arrow-Buttons ------------------------------------------------------------------------------------------ //
+function renderCross( _d3id, _year, _evValue, _ausEvValue, _kathValue, _ausKathValue, _bevValue ){
 
-function svgButtons (_values, _images, _names) {
+    var svgHeight = App.Context.Configuration.SvgHeight;
+    var svgWidth = App.Context.Configuration.SvgWidth;
 
 
-    var event = 'click';
+    var svgCont = d3.select(_d3id);
+    svgCont.html('');
+
+    var svg = d3.select(_d3id).append('svg')
+        .attr('viewBox', "0 0 "+svgWidth+" "+svgHeight)
+        .attr('id', 'cross'+_year);
+    
+        svg.html('');
+
+    renderBlock(_year, 'bev', _bevValue);
+    renderBlock(_year, 'ev', _evValue);
+    renderBlock(_year, 'aus_ev', _ausEvValue, _evValue);
+    renderBlock(_year, 'kath', _kathValue);
+    renderBlock(_year, 'aus_kath', _ausKathValue, _kathValue);
+
+
+    var yearGroup = svg.append('g')
+        .attr('id', _year);
+
+
+
+    var jahreszahl = yearGroup.append('text')
+        .attr('id', 'yearTxt')
+        .attr('x', 110)
+        .attr('y', 400)
+        .attr('font-size', '2em')
+        .attr('font-family', 'HelveticaBold')
+        .attr('text-anchor', 'middle')
+        .attr('fill',App.Context.Configuration.Colors[6])
+        .text(_year) ;
+
+
+
+    var crossBlockName = _d3id.substr(1);
+    var crossBlock = document.getElementById(crossBlockName);
+
+    var bev = document.getElementById('bev-txt');
+    var kath = document.getElementById('kath-txt');
+    var ev =document.getElementById("ev-txt");
+    var evAus =document.getElementById("ev-aus-txt");
+    var kathAus =document.getElementById("kath-aus-txt");
+    var year = document.getElementById("year-txt");
+    var legend = document.getElementById("legend");
+
+    var event = 'mouseover';
 
     if ('ontouchstart' in window) {
         event = 'touchstart';
     }
 
-    var values = _values;
-    var images = _images;
-    var names = _names;
-
-    var btnForward = document.getElementById('btn-forward'),
-        btnBack = document.getElementById('btn-back');
-
-    var i = -1;
 
 
+    crossBlock.addEventListener(event, function(e) {
 
-    btnForward.addEventListener(event, function() {
-        i = i+1;
 
-        if (i > 10 ) {
-            generateStartLayer();
-            renderSVG(1568);
-            i = 0;
-        }
+            if(isMobile()){
+                legend.style.top=300 +"px";
+                legend.style.left= 5+"px";
+            }else {
+                legend.style.top=(e.clientY-50) +"px";
+                legend.style.left= (e.clientX+50)+"px";
+            }
 
-        else
-            {
-        var numDrops = values [i] / 10;
-        var assetName = names [i] ;
-        var assetValue = values [i];
-        var assetImage = images[i];
-        var slide = i + 1;
-        var allSlides = 11;
 
-        renderSVG(numDrops);
-        generateAssetLayer(assetName, assetValue, assetImage, slide, allSlides)  ;
-        }
 
-    },
+
+            bev.innerHTML = _bevValue+" Mio.";
+            ev.innerHTML = _evValue+" Mio.";
+            kath.innerHTML = _kathValue+" Mio.";
+            evAus.innerHTML = _ausEvValue.toLocaleString();
+            kathAus.innerHTML = _ausKathValue.toLocaleString();
+            year.innerHTML = _year;
+
+        TweenMax.to(legend, 0.4, {opacity:1, ease:Linear.easeNone});
+
+
+        },
+        false);
+
+    crossBlock.addEventListener('mouseout', function(e) {
+
+            TweenMax.to(legend, 0, {opacity:0, ease:Linear.easeNone});
+
+            legend.style.top=0;
+            legend.style.left=0;
+
+        },
         false);
 
 
-    btnBack.addEventListener(event, function() {
-        i = i-1;
-
-        if (i < 0 ) {
-            generateStartLayer();
-            renderSVG(1568);
-            i = 0;
-        }
-        else {
-
-            TweenMax.to(".ctn-asset", 1, {opacity:0}, 0.5);
-
-        var numDrops = values [i] / 10;
-        var assetName = names [i] ;
-        var assetValue = values [i];
-        var assetImage = images[i];
-        var slide = i + 1;
-        var allSlides = 11;
-
-        renderSVG(numDrops) ;
-        generateAssetLayer(assetName, assetValue, assetImage, slide, allSlides)  ;
-        }
-    },
-        false);
-
 }
 
-
-//--- SVG generieren mit d3-----------------------------------------------------------------------------------   //
-
-
-
-function rowDropsY(_rowID, _svgHeight, _dropY){
-
-    var multiplier = _rowID - 1;
-    var dY = (_dropY + _svgHeight * multiplier) - (_rowID * 20 - 20);
-    return (dY);
-
-}
-
-function renderSVG(_numDrops){
-
-    var dropX = 20;
-    var dropY = 20;
-    var rowID = 1;
-    var svgHeight = 580;
-    
-
-    var svgCont = d3.select('#d3-content');
-    svgCont.html('');
-
-    var svg = svgCont.append('svg')
-        .attr('viewBox', "0 0 1160 "+svgHeight)
-        .attr('id', 'drops');
-        svg.html('');
-
-
-    var group = svg.append('g')
-        .attr('id', 'smalldrops');
-
-
-    for ( i=1; i<= _numDrops; i++ ) {
-
-        dropX = rowID * 20;
-
-        var dropYbig = svgHeight -(i * 20);
-        dropY = rowDropsY(rowID, svgHeight, dropYbig);
-
-
-        if (dropY < 30){
-            rowID = rowID + 1;
-        }
-
-        var smalldrop = group.append('path')
-            .attr('fill', '#9ad5ef')
-            .attr('d', 'M20.6,17.2c-2.6,2.7-6.8,2.7-9.5,0.1s-2.3-6.6-0.2-9.5c1-1.4,4.8-4.6,4.8-4.6s3.5,2.9,4.6,4.4 C22.6,10.8,23.1,14.6,20.6,17.2z')
-            .attr('class', 'drop')
-            .attr('id', ('drop' + i))
-            .attr('transform', 'translate('+ dropX+ ','+ dropY+')')
-            .attr('opacity', 0);
-
-    }
-
-    var tl = new TimelineMax();
-
-    $(".drop").each(function(i,el){
-
-        var dRand = Math.random()*1;
-        tl.to($(el), 0.2, {autoAlpha:1, ease:Sine.easeOut}, dRand);
-
-    });
-}
-
-
+// Daten laden und rendern--------------------------------------------------------------------------------------- //
 function generateAssets() {
 
 
-    // Daten laden ---->
-
     loadJSON('json/assets.json', function (text) {
-        var allItems = JSON.parse(text);
 
-        var arrValues = [];
-        var arrImages = [];
-        var arrNames = [];
+        var allItems = JSON.parse(text);
+        var arrYear = [];
+        var arrKath = [];
+        var arrEv = [];
+        var arrKathAus = [];
+        var arrEvAus = [];
+        var arrBev = [];
+
 
         for (var i = 0; i < allItems.assetList.length; i++) {
-            var singleAsset = allItems.assetList[i];
-            var AssetID = singleAsset.valueLitre;
-            var AssetImage = singleAsset.pic;
-            var AssetName = singleAsset.assetName;
 
-            arrValues.push(AssetID);
-            arrImages.push(AssetImage);
-            arrNames.push(AssetName);
+            var singleAsset = allItems.assetList[i];
+            var AssetYear = singleAsset.Jahr;
+            var AssetKath = singleAsset.kath;
+            var AssetEv = singleAsset.ev;
+            var AssetKathAus = singleAsset.kath_aus;
+            var AssetEvAus = singleAsset.ev_aus;
+            var AssetBev = singleAsset.bev;
+
+            arrYear.push(AssetYear);
+            arrKath.push(AssetKath);
+            arrEv.push(AssetEv);
+            arrKathAus.push(AssetKathAus);
+            arrEvAus.push(AssetEvAus);
+            arrBev.push(AssetBev);
 
         }
 
-       svgButtons(arrValues, arrImages, arrNames);
 
-        });
+        for (var j = 0; j < allItems.assetList.length; j++) {
 
-
-}
-
-//--- Textlayer befüllen ------------------------------------------------------------------------------------ //
-
-function generateAssetLayer( _assetName, _assetLitre, _imgSource, _slideNum, _allSlides ) {
+        var divID = "#d3-"+arrYear[j];
 
 
-    var layerTopPos = (document.getElementById("d3-content").offsetHeight / 2) -100;
+        renderCross(divID, arrYear[j], arrEv[j], arrEvAus[j], arrKath[j], arrKathAus[j], arrBev[j]);
 
-    var assetName = _assetName;
-    var assetLitre = thousendPoints(_assetLitre.toString());
-    var imgSource = _imgSource;
 
-    $('.ctn-asset').css({opacity:0});
-    TweenMax.to(".ctn-asset", 0, {top:0}, 0);
-    
-    $('#img-asset').empty();
-    $('#litre-asset').empty();
-    $('#txt-asset').empty();
-    $('#slide-num').empty();
+        }
 
-    $('#img-asset').append('<img src="images/' + imgSource + ' "/></div>');
-    $('#litre-asset').append(assetLitre + '<span style="font-size:0.4em"> Liter </span>');
-    $('#txt-asset').append('Wasser werden für die Herstellung von <span style="font-family:HelveticaBold">' + assetName + '</span> benötigt.');
-    $('#slide-num').append('(' + _slideNum + '/' + _allSlides + ')');
-
-    TweenMax.to(".ctn-asset", 1, {top:layerTopPos, opacity:1, delay:1, ease:Back.easeOut}, 0.1);
+    });
 
 
 }
 
-function generateStartLayer() {
-
-
-    var layerTopPos = (document.getElementById("d3-content").offsetHeight / 2) -100;
-
-
-    TweenMax.to(".ctn-asset", 0.1, {top:0, opacity:0, ease:Back.easeOut}, 0.1);
-
-    $('#img-asset').empty();
-    $('#litre-asset').empty();
-    $('#txt-asset').empty();
-    $('#slide-num').empty();
-
-    $('#txt-asset').append('Der Mensch verbraucht durchschnittlich 123 Liter Wasser am Tag. Doch wie viel Wasser wird eigentlich bei der Herstellung von verschiedenen Produkten verwendet? <br> <br> Schauen Sie selbst... ein Tropfen in der Grafik bedeutet zehn Liter. ');
-    $('#litre-asset').append('<span style="font-size:0.5em; line-height:1.4em">Virtuelles Wasser</span>');
-
-
-
-    TweenMax.to(".ctn-asset", 1, {top:layerTopPos, height: 200, opacity:1, delay:1, ease:Back.easeOut}, 0.1);
-                                                                                                                                                                                                                                                     
-
-}
 
 
 //--- Document Ready ----------------------------------------------------------------------------------------   //
 
 $(document).ready( function()  {
-
-    renderSVG(1568);
+    
     generateAssets();
-    generateStartLayer();
 
 
 } );
